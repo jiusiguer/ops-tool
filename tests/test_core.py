@@ -84,13 +84,32 @@ class CoreTests(unittest.TestCase):
         config = proxy.generate_xray_vless_reality_xhttp_config(plan)
         inbound = config["inbounds"][0]
         self.assertEqual(inbound["protocol"], "vless")
-        self.assertEqual(inbound["settings"]["users"][0]["id"], plan.uuid)
+        self.assertEqual(inbound["settings"]["clients"][0]["id"], plan.uuid)
+        self.assertNotIn("users", inbound["settings"])
         self.assertEqual(inbound["streamSettings"]["network"], "xhttp")
         self.assertEqual(inbound["streamSettings"]["security"], "reality")
         self.assertEqual(inbound["streamSettings"]["xhttpSettings"]["path"], "/xhttp")
         client = proxy.generate_vless_client_info(plan)
         self.assertIn("vless://", client)
         self.assertIn("type=xhttp", client)
+
+    def test_migrate_vless_users_to_clients(self) -> None:
+        config = {
+            "inbounds": [
+                {
+                    "protocol": "vless",
+                    "settings": {
+                        "users": [{"id": "u"}],
+                        "decryption": "none",
+                    },
+                }
+            ]
+        }
+        changed = proxy.migrate_vless_users_to_clients(config)
+        settings = config["inbounds"][0]["settings"]
+        self.assertEqual(changed, 1)
+        self.assertIn("clients", settings)
+        self.assertNotIn("users", settings)
 
     def test_singbox_hy2_config(self) -> None:
         plan = proxy.Hy2Plan(
@@ -128,11 +147,21 @@ class CoreTests(unittest.TestCase):
     def test_default_proxy_profiles(self) -> None:
         vless = proxy.VlessRealityXhttpDefaults()
         hy2 = proxy.Hy2Defaults()
-        self.assertEqual(vless.port, 443)
         self.assertEqual(vless.server_name, "www.microsoft.com")
         self.assertEqual(vless.path, "/xhttp")
-        self.assertEqual(hy2.port, 443)
         self.assertTrue(hy2.self_signed)
+
+    def test_random_port_avoids_common_ports(self) -> None:
+        ctx = self.make_ctx()
+        port = proxy.choose_random_port(ctx, "tcp")
+        self.assertGreaterEqual(port, proxy.RANDOM_PORT_MIN)
+        self.assertLessEqual(port, proxy.RANDOM_PORT_MAX)
+        self.assertNotIn(port, proxy.COMMON_PORTS)
+        self.assertNotEqual(port, 443)
+
+    def test_root_path_exists_handles_permission_denied_in_dry_run(self) -> None:
+        with patch.object(Path, "exists", side_effect=PermissionError):
+            self.assertFalse(proxy.root_path_exists(self.make_ctx(), Path("/root/blocked")))
 
     def test_server_value_validation(self) -> None:
         self.assertTrue(proxy.is_reasonable_server("203.0.113.10"))

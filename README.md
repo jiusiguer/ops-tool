@@ -205,7 +205,6 @@ chmod +x run.sh
 
 ./run.sh proxy deploy-vless-reality-xhttp \
   --server your-domain-or-ip.example \
-  --port 443 \
   --server-name www.microsoft.com \
   --reality-target www.microsoft.com:443 \
   --path /xhttp \
@@ -213,14 +212,15 @@ chmod +x run.sh
 
 ./run.sh proxy deploy-hy2 \
   --server your-domain-or-ip.example \
-  --port 443 \
   --server-name your-domain-or-ip.example \
   --open-firewall
 ```
 
-`deploy-vless-default` 默认使用 `443/tcp`、`www.microsoft.com` 作为 REALITY SNI、`/xhttp` 作为 XHTTP path，并自动生成 UUID、REALITY key、shortId。
+`deploy-vless-default` 默认随机选择 `20000-59999/tcp` 的高位端口，避开 443、80、22、8080 等常见端口和本机已占用端口；同时使用 `www.microsoft.com` 作为 REALITY SNI、`/xhttp` 作为 XHTTP path，并自动生成 UUID、REALITY key、shortId。
 
-`deploy-hy2-default` 默认使用 `443/udp`、自签证书、随机密码、salamander 混淆和随机混淆密码。
+`deploy-hy2-default` 默认随机选择 `20000-59999/udp` 的高位端口，避开常见端口和本机已占用端口；同时使用自签证书、随机密码、salamander 混淆和随机混淆密码。
+
+手动部署命令如果不传 `--port`，同样会自动选择随机高位端口。需要固定端口时才显式传 `--port`。
 
 默认部署会先尝试自动检测公网 IP。检测失败时会回退到本机主机名。部署完成会打印对应的分享链接，并把客户端信息保存到 `/etc/ops-tool/proxy-clients/`。HY2 使用 UDP，除了本机防火墙，还要在云厂商安全组里放行对应 UDP 端口。
 

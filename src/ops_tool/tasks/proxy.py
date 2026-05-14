@@ -35,6 +35,45 @@ DOC_SOURCES = [
     "sing-box Hysteria2：https://sing-box.sagernet.org/manual/proxy-protocol/hysteria2/",
 ]
 
+RANDOM_PORT_MIN = 20000
+RANDOM_PORT_MAX = 59999
+COMMON_PORTS = {
+    20,
+    21,
+    22,
+    25,
+    53,
+    80,
+    110,
+    123,
+    143,
+    161,
+    389,
+    443,
+    465,
+    587,
+    993,
+    995,
+    1433,
+    1521,
+    2049,
+    2375,
+    2376,
+    3000,
+    3306,
+    3389,
+    5432,
+    5900,
+    6379,
+    8000,
+    8080,
+    8443,
+    9000,
+    9200,
+    11211,
+    27017,
+}
+
 
 @dataclass(frozen=True, slots=True)
 class VlessRealityXhttpPlan:
@@ -73,7 +112,6 @@ class Hy2Plan:
 
 @dataclass(frozen=True, slots=True)
 class VlessRealityXhttpDefaults:
-    port: int = 443
     listen: str = "0.0.0.0"
     reality_target: str = "www.microsoft.com:443"
     server_name: str = "www.microsoft.com"
@@ -86,7 +124,6 @@ class VlessRealityXhttpDefaults:
 
 @dataclass(frozen=True, slots=True)
 class Hy2Defaults:
-    port: int = 443
     listen: str = "::"
     user: str = "default"
     up_mbps: int = 100
@@ -151,15 +188,16 @@ def docs(_: RuntimeContext) -> int:
 def deploy_vless_default(ctx: RuntimeContext, *, server: str | None = None) -> int:
     defaults = VlessRealityXhttpDefaults()
     selected_server = server or detect_public_server(ctx)
+    selected_port = choose_random_port(ctx, "tcp")
     print_title("一键部署默认 VLESS + REALITY + XHTTP")
     print_kv("默认服务器地址", selected_server)
-    print_kv("默认端口", defaults.port)
+    print_kv("随机端口", f"{selected_port}/tcp")
     print_kv("默认 SNI", defaults.server_name)
     print_kv("默认 XHTTP path", defaults.path)
     return deploy_vless_reality_xhttp(
         ctx,
         server=selected_server,
-        port=defaults.port,
+        port=selected_port,
         reality_target=defaults.reality_target,
         server_name=defaults.server_name,
         path=defaults.path,
@@ -174,15 +212,16 @@ def deploy_vless_default(ctx: RuntimeContext, *, server: str | None = None) -> i
 def deploy_hy2_default(ctx: RuntimeContext, *, server: str | None = None) -> int:
     defaults = Hy2Defaults()
     selected_server = server or detect_public_server(ctx)
+    selected_port = choose_random_port(ctx, "udp")
     print_title("一键部署默认 Hysteria2 / HY2")
     print_kv("默认服务器地址", selected_server)
-    print_kv("默认端口", defaults.port)
+    print_kv("随机端口", f"{selected_port}/udp")
     print_kv("默认证书模式", "自签证书")
     print_kv("默认混淆", "salamander")
     return deploy_hy2(
         ctx,
         server=selected_server,
-        port=defaults.port,
+        port=selected_port,
         server_name=selected_server,
         listen=defaults.listen,
         user=defaults.user,
@@ -252,6 +291,61 @@ def repair_xray_permissions(ctx: RuntimeContext, *, restart: bool = False) -> in
         run_command(ctx, root_cmd(["systemctl", "daemon-reload"]), check=False, capture=True, timeout=60)
         run_command(ctx, root_cmd(["systemctl", "restart", "xray"]), check=False, capture=False, timeout=120)
     return 0
+
+
+def repair_xray_vless_clients(ctx: RuntimeContext, *, restart: bool = True) -> int:
+    print_title("修复 Xray VLESS clients 字段")
+    print_kv("配置文件", XRAY_CONFIG)
+    if not XRAY_CONFIG.exists():
+        print_warning("Xray 配置文件不存在。")
+        return 1
+
+    text = read_root_file(ctx, XRAY_CONFIG)
+    config = json.loads(text)
+    changed = migrate_vless_users_to_clients(config)
+    if changed == 0:
+        print_step("未发现需要迁移的 VLESS settings.users 字段。")
+        return 0
+
+    print_step(f"发现并迁移 {changed} 个 VLESS 入站。")
+    if not confirm(ctx, "确认写回修复后的 Xray 配置并重启服务？"):
+        print_step("已取消。")
+        return 1
+
+    backup_root_file(ctx, XRAY_CONFIG)
+    write_root_file(ctx, XRAY_CONFIG, json.dumps(config, ensure_ascii=False, indent=2) + "\n", mode="0644")
+    if not ctx.dry_run:
+        validate_xray_config(ctx)
+    if restart:
+        restart_service(ctx, "xray")
+    return 0
+
+
+def read_root_file(ctx: RuntimeContext, path: Path) -> str:
+    result = run_command(ctx, root_cmd(["cat", str(path)]), check=True, capture=True, dry_run_execute=True)
+    return result.stdout
+
+
+def migrate_vless_users_to_clients(config: dict[str, object]) -> int:
+    changed = 0
+    inbounds = config.get("inbounds")
+    if not isinstance(inbounds, list):
+        return changed
+    for inbound in inbounds:
+        if not isinstance(inbound, dict):
+            continue
+        if inbound.get("protocol") != "vless":
+            continue
+        settings = inbound.get("settings")
+        if not isinstance(settings, dict):
+            continue
+        users = settings.pop("users", None)
+        if "clients" not in settings and isinstance(users, list):
+            settings["clients"] = users
+            changed += 1
+        elif users is not None:
+            changed += 1
+    return changed
 
 
 def root_pipe_install_command(url: str, interpreter: str, args: str) -> str:
@@ -405,7 +499,7 @@ def deploy_hy2(
 
     if plan.self_signed:
         ensure_self_signed_cert(ctx, plan)
-    elif not (plan.cert_path.exists() and plan.key_path.exists()):
+    elif not (root_path_exists(ctx, plan.cert_path) and root_path_exists(ctx, plan.key_path)):
         raise RuntimeError("未启用自签证书时，必须提供已存在的 cert/key 文件。")
 
     config = generate_singbox_hy2_config(plan)
@@ -499,7 +593,7 @@ def generate_xray_vless_reality_xhttp_config(plan: VlessRealityXhttpPlan) -> dic
                 "port": plan.port,
                 "protocol": "vless",
                 "settings": {
-                    "users": [
+                    "clients": [
                         {
                             "id": plan.uuid,
                             "email": plan.email,
@@ -742,7 +836,7 @@ def open_port(ctx: RuntimeContext, port: int, proto: str) -> None:
 
 
 def ensure_self_signed_cert(ctx: RuntimeContext, plan: Hy2Plan) -> None:
-    if plan.cert_path.exists() and plan.key_path.exists():
+    if root_path_exists(ctx, plan.cert_path) and root_path_exists(ctx, plan.key_path):
         return
     if not shutil.which("openssl"):
         raise RuntimeError("生成自签证书需要 openssl，请先安装 openssl。")
@@ -778,6 +872,16 @@ def ensure_self_signed_cert(ctx: RuntimeContext, plan: Hy2Plan) -> None:
     run_command(ctx, root_cmd(["chmod", "644", str(plan.cert_path)]), check=True, capture=True)
 
 
+def root_path_exists(ctx: RuntimeContext, path: Path) -> bool:
+    try:
+        return path.exists()
+    except OSError:
+        if ctx.dry_run:
+            return False
+    result = run_command(ctx, root_cmd(["test", "-e", str(path)]), check=False, capture=True, dry_run_execute=True)
+    return result.ok
+
+
 def safe_filename(value: str) -> str:
     clean = re.sub(r"[^A-Za-z0-9_.-]+", "-", value).strip("-")
     return clean or "proxy"
@@ -788,6 +892,32 @@ def guess_public_server() -> str:
         return socket.getfqdn() or socket.gethostname()
     except OSError:
         return "your-server.example.com"
+
+
+def choose_random_port(ctx: RuntimeContext, proto: str) -> int:
+    for _ in range(100):
+        port = RANDOM_PORT_MIN + secrets.randbelow(RANDOM_PORT_MAX - RANDOM_PORT_MIN + 1)
+        if port in COMMON_PORTS:
+            continue
+        if port_is_available(ctx, port, proto):
+            return port
+    raise RuntimeError("无法找到可用的随机高位端口。")
+
+
+def port_is_available(ctx: RuntimeContext, port: int, proto: str) -> bool:
+    if port in COMMON_PORTS:
+        return False
+    if port < RANDOM_PORT_MIN or port > RANDOM_PORT_MAX:
+        return False
+
+    sock_type = socket.SOCK_DGRAM if proto == "udp" else socket.SOCK_STREAM
+    with socket.socket(socket.AF_INET, sock_type) as sock:
+        try:
+            sock.bind(("0.0.0.0", port))
+        except OSError:
+            ctx.logger.info(f"port unavailable: {port}/{proto}")
+            return False
+    return True
 
 
 def detect_public_server(ctx: RuntimeContext) -> str:

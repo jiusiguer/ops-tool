@@ -108,6 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
     proxy_sub.add_parser("install-xray", help="安装或更新 Xray core")
     proxy_sub.add_parser("install-sing-box", help="安装或更新 sing-box core")
     proxy_sub.add_parser("repair-xray-perms", help="修复 Xray config.json 权限并重启服务")
+    proxy_sub.add_parser("repair-vless-clients", help="把错误的 VLESS settings.users 迁移为 settings.clients")
 
     vless_default_parser = proxy_sub.add_parser("deploy-vless-default", help="使用默认配置一键部署 VLESS + REALITY + XHTTP")
     vless_default_parser.add_argument("--server", default=None, help="客户端连接用的公网 IP 或域名；不填则自动检测")
@@ -140,7 +141,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def add_common_deploy_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--server", default=proxy.guess_public_server(), help="客户端连接用的公网 IP 或域名")
-    parser.add_argument("--port", type=int, default=443, help="监听端口")
+    parser.add_argument("--port", type=int, default=None, help="监听端口；不填时随机选择高位端口")
     parser.add_argument("--listen", default="0.0.0.0", help="监听地址")
     parser.add_argument("--remark", default=None, help="客户端备注")
     parser.add_argument("--no-install-core", action="store_true", help="缺少核心时不自动安装")
@@ -250,15 +251,18 @@ def dispatch_proxy(args: argparse.Namespace, ctx: RuntimeContext) -> int:
         return proxy.install_sing_box(ctx)
     if action == "repair-xray-perms":
         return proxy.repair_xray_permissions(ctx, restart=True)
+    if action == "repair-vless-clients":
+        return proxy.repair_xray_vless_clients(ctx)
     if action == "deploy-vless-default":
         return proxy.deploy_vless_default(ctx, server=args.server)
     if action == "deploy-hy2-default":
         return proxy.deploy_hy2_default(ctx, server=args.server)
     if action == "deploy-vless-reality-xhttp":
+        port = args.port or proxy.choose_random_port(ctx, "tcp")
         return proxy.deploy_vless_reality_xhttp(
             ctx,
             server=args.server,
-            port=args.port,
+            port=port,
             listen=args.listen,
             reality_target=args.reality_target,
             server_name=args.server_name,
@@ -271,10 +275,11 @@ def dispatch_proxy(args: argparse.Namespace, ctx: RuntimeContext) -> int:
             remark=args.remark or "ops-vless-reality-xhttp",
         )
     if action == "deploy-hy2":
+        port = args.port or proxy.choose_random_port(ctx, "udp")
         return proxy.deploy_hy2(
             ctx,
             server=args.server,
-            port=args.port,
+            port=port,
             listen=args.listen if args.listen != "0.0.0.0" else "::",
             server_name=args.server_name,
             user=args.user,

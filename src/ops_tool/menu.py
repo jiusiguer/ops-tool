@@ -176,6 +176,7 @@ def run_proxy_menu(ctx: RuntimeContext) -> int:
             ("安装 / 更新 Xray core", lambda inner: proxy.install_xray(inner)),
             ("安装 / 更新 sing-box core", lambda inner: proxy.install_sing_box(inner)),
             ("修复 Xray 配置权限并重启", lambda inner: proxy.repair_xray_permissions(inner, restart=True)),
+            ("修复已部署 VLESS clients 字段", lambda inner: proxy.repair_xray_vless_clients(inner)),
             ("一键部署默认 VLESS + REALITY + XHTTP", lambda inner: proxy.deploy_vless_default(inner)),
             ("一键部署默认 Hysteria2 / HY2", lambda inner: proxy.deploy_hy2_default(inner)),
             ("部署 VLESS + REALITY + XHTTP", deploy_vless_prompt),
@@ -203,7 +204,7 @@ def prompt_yes_no(label: str, default: bool) -> bool:
 
 def deploy_vless_prompt(ctx: RuntimeContext) -> int:
     server = prompt_default("服务器公网 IP 或域名", proxy.guess_public_server())
-    port = prompt_int("监听端口 TCP", 443)
+    port = prompt_int("监听端口 TCP", proxy.choose_random_port(ctx, "tcp"))
     server_name = prompt_default("REALITY SNI / serverName", "www.microsoft.com")
     reality_target = prompt_default("REALITY 回落目标 target", f"{server_name}:443")
     path = prompt_default("XHTTP path", "/xhttp")
@@ -225,7 +226,7 @@ def deploy_vless_prompt(ctx: RuntimeContext) -> int:
 
 def deploy_hy2_prompt(ctx: RuntimeContext) -> int:
     server = prompt_default("服务器公网 IP 或域名", proxy.guess_public_server())
-    port = prompt_int("监听端口 UDP", 443)
+    port = prompt_int("监听端口 UDP", proxy.choose_random_port(ctx, "udp"))
     server_name = prompt_default("TLS SNI / 证书 CN", server)
     up_mbps = prompt_int("服务端上行 Mbps", 100)
     down_mbps = prompt_int("服务端下行 Mbps", 100)
