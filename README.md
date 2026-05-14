@@ -205,8 +205,8 @@ chmod +x run.sh
 
 ./run.sh proxy deploy-vless-reality-xhttp \
   --server your-domain-or-ip.example \
-  --server-name www.microsoft.com \
-  --reality-target www.microsoft.com:443 \
+  --server-name www.nvidia.com \
+  --reality-target www.nvidia.com:443 \
   --path /xhttp \
   --open-firewall
 
@@ -216,7 +216,7 @@ chmod +x run.sh
   --open-firewall
 ```
 
-`deploy-vless-default` 默认随机选择 `20000-59999/tcp` 的高位端口，避开 443、80、22、8080 等常见端口和本机已占用端口；同时使用 `www.microsoft.com` 作为 REALITY SNI、`/xhttp` 作为 XHTTP path，并自动生成 UUID、REALITY key、shortId。
+`deploy-vless-default` 默认随机选择 `20000-59999/tcp` 的高位端口，避开 443、80、22、8080 等常见端口和本机已占用端口；同时使用 `www.nvidia.com` 作为 REALITY SNI、`/xhttp` 作为 XHTTP path，并自动生成 UUID、REALITY key、shortId。
 
 `deploy-hy2-default` 默认随机选择 `20000-59999/udp` 的高位端口，避开常见端口和本机已占用端口；同时使用自签证书、随机密码、salamander 混淆和随机混淆密码。
 

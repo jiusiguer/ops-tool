@@ -205,7 +205,7 @@ def prompt_yes_no(label: str, default: bool) -> bool:
 def deploy_vless_prompt(ctx: RuntimeContext) -> int:
     server = prompt_default("服务器公网 IP 或域名", proxy.guess_public_server())
     port = prompt_int("监听端口 TCP", proxy.choose_random_port(ctx, "tcp"))
-    server_name = prompt_default("REALITY SNI / serverName", "www.microsoft.com")
+    server_name = prompt_default("REALITY SNI / serverName", proxy.REALITY_DEFAULT_SERVER_NAME)
     reality_target = prompt_default("REALITY 回落目标 target", f"{server_name}:443")
     path = prompt_default("XHTTP path", "/xhttp")
     mode = prompt_default("XHTTP mode", "auto")

@@ -24,6 +24,8 @@ XRAY_CONFIG = Path("/usr/local/etc/xray/config.json")
 SING_BOX_CONFIG = Path("/etc/sing-box/config.json")
 CLIENT_DIR = Path("/etc/ops-tool/proxy-clients")
 HY2_CERT_DIR = Path("/etc/ops-tool/proxy-certs")
+REALITY_DEFAULT_SERVER_NAME = "www.nvidia.com"
+REALITY_DEFAULT_TARGET = f"{REALITY_DEFAULT_SERVER_NAME}:443"
 
 DOC_SOURCES = [
     "Xray 安装：https://xtls.github.io/en/document/install",
@@ -113,8 +115,8 @@ class Hy2Plan:
 @dataclass(frozen=True, slots=True)
 class VlessRealityXhttpDefaults:
     listen: str = "0.0.0.0"
-    reality_target: str = "www.microsoft.com:443"
-    server_name: str = "www.microsoft.com"
+    reality_target: str = REALITY_DEFAULT_TARGET
+    server_name: str = REALITY_DEFAULT_SERVER_NAME
     path: str = "/xhttp"
     xhttp_mode: str = "auto"
     email: str = "ops-tool@local"
@@ -374,8 +376,8 @@ def deploy_vless_reality_xhttp(
     *,
     server: str,
     port: int = 443,
-    reality_target: str = "www.microsoft.com:443",
-    server_name: str = "www.microsoft.com",
+    reality_target: str = REALITY_DEFAULT_TARGET,
+    server_name: str = REALITY_DEFAULT_SERVER_NAME,
     path: str = "/xhttp",
     xhttp_mode: str = "auto",
     email: str = "ops-tool@local",

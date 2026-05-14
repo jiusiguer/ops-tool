@@ -118,8 +118,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     vless_parser = proxy_sub.add_parser("deploy-vless-reality-xhttp", help="部署 VLESS + REALITY + XHTTP")
     add_common_deploy_args(vless_parser)
-    vless_parser.add_argument("--reality-target", default="www.microsoft.com:443", help="REALITY target 回落目标")
-    vless_parser.add_argument("--server-name", default="www.microsoft.com", help="REALITY serverName/SNI")
+    vless_parser.add_argument("--reality-target", default=proxy.REALITY_DEFAULT_TARGET, help="REALITY target 回落目标")
+    vless_parser.add_argument("--server-name", default=proxy.REALITY_DEFAULT_SERVER_NAME, help="REALITY serverName/SNI")
     vless_parser.add_argument("--path", default="/xhttp", help="XHTTP path")
     vless_parser.add_argument("--xhttp-mode", default="auto", help="XHTTP mode")
     vless_parser.add_argument("--email", default="ops-tool@local", help="Xray client email 标识")

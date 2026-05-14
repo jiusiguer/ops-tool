@@ -72,8 +72,8 @@ class CoreTests(unittest.TestCase):
             port=443,
             uuid="11111111-1111-4111-8111-111111111111",
             email="test@example.com",
-            reality_target="www.microsoft.com:443",
-            server_name="www.microsoft.com",
+            reality_target="www.nvidia.com:443",
+            server_name="www.nvidia.com",
             private_key="private",
             public_key="public",
             short_id="0123456789abcdef",
@@ -147,7 +147,7 @@ class CoreTests(unittest.TestCase):
     def test_default_proxy_profiles(self) -> None:
         vless = proxy.VlessRealityXhttpDefaults()
         hy2 = proxy.Hy2Defaults()
-        self.assertEqual(vless.server_name, "www.microsoft.com")
+        self.assertEqual(vless.server_name, "www.nvidia.com")
         self.assertEqual(vless.path, "/xhttp")
         self.assertTrue(hy2.self_signed)
 
