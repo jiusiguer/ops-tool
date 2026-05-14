@@ -58,6 +58,7 @@ class CoreTests(unittest.TestCase):
     def test_ccswitch_constants(self) -> None:
         self.assertEqual(ccswitch.APP_NAME, "codex")
         self.assertIn("SaladDay/cc-switch-cli", ccswitch.INSTALL_SCRIPT_URL)
+        self.assertEqual(ccswitch.config_dir().name, ".cc-switch")
 
     def test_redact_login_status(self) -> None:
         text = "Logged in using an API key - sk-test***abcd"

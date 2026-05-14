@@ -144,6 +144,8 @@ def run_ccswitch_menu(ctx: RuntimeContext) -> str:
             ("打开 cc-switch Codex 交互面板", lambda inner: ccswitch.launch_panel(inner)),
             ("安装 / 覆盖安装 cc-switch", lambda inner: ccswitch.install(inner)),
             ("更新 cc-switch", lambda inner: ccswitch.update(inner)),
+            ("卸载 cc-switch", lambda inner: ccswitch.uninstall(inner)),
+            ("卸载 cc-switch 并删除配置", lambda inner: ccswitch.uninstall(inner, purge_config=True)),
             ("查看当前 Provider", lambda inner: ccswitch.provider_current(inner)),
             ("列出 Provider", lambda inner: ccswitch.provider_list(inner)),
             ("切换 Provider", switch_provider_prompt),

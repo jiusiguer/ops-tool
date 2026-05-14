@@ -123,6 +123,20 @@ chmod +x run.sh
 ./run.sh ccswitch update
 ```
 
+卸载 cc-switch：
+
+```bash
+./run.sh ccswitch uninstall
+```
+
+默认卸载只删除 `cc-switch` 命令，不删除 `~/.cc-switch`，也不删除 `~/.codex/config.toml` 和 `~/.codex/auth.json`。如果需要同时删除 cc-switch 自己的配置目录：
+
+```bash
+./run.sh ccswitch uninstall --purge-config
+```
+
+该模式会先备份 `~/.cc-switch`，并要求输入确认文本。
+
 打开 Codex 配置统一管理面板：
 
 ```bash
@@ -139,6 +153,7 @@ chmod +x run.sh
 
 ```bash
 ./run.sh ccswitch status
+./run.sh ccswitch uninstall
 ./run.sh ccswitch provider-current
 ./run.sh ccswitch provider-list
 ./run.sh ccswitch provider-switch <provider-id>

@@ -80,6 +80,8 @@ def build_parser() -> argparse.ArgumentParser:
     ccswitch_sub.add_parser("status", help="查看 cc-switch 和 Codex 配置面板状态")
     ccswitch_sub.add_parser("install", help="安装或覆盖安装 cc-switch-cli")
     ccswitch_sub.add_parser("update", help="更新 cc-switch-cli")
+    ccswitch_uninstall = ccswitch_sub.add_parser("uninstall", help="卸载 cc-switch-cli")
+    ccswitch_uninstall.add_argument("--purge-config", action="store_true", help="备份并删除 ~/.cc-switch 配置目录")
     ccswitch_sub.add_parser("launch", help="打开 cc-switch --app codex interactive")
     ccswitch_sub.add_parser("provider-current", help="查看当前 Codex Provider")
     ccswitch_sub.add_parser("provider-list", help="列出 Codex Provider")
@@ -199,6 +201,8 @@ def dispatch_ccswitch(args: argparse.Namespace, ctx: RuntimeContext) -> int:
         return ccswitch.install(ctx)
     if action == "update":
         return ccswitch.update(ctx)
+    if action == "uninstall":
+        return ccswitch.uninstall(ctx, purge_config=args.purge_config)
     if action == "launch":
         return ccswitch.launch_panel(ctx)
     if action == "provider-current":

@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 
 from ..context import RuntimeContext
+from ..files import backup_directory
 from ..shell import CommandResult, run_command
 from ..ui import confirm, print_kv, print_step, print_title, print_warning
 
@@ -15,6 +16,10 @@ APP_NAME = "codex"
 
 def install_dir() -> Path:
     return Path(os.environ.get("CC_SWITCH_INSTALL_DIR", "~/.local/bin")).expanduser()
+
+
+def config_dir() -> Path:
+    return Path("~/.cc-switch").expanduser()
 
 
 def cc_switch_bin() -> str | None:
@@ -106,11 +111,56 @@ def update(ctx: RuntimeContext) -> int:
     return 0
 
 
+def uninstall(ctx: RuntimeContext, *, purge_config: bool = False) -> int:
+    print_title("卸载 cc-switch-cli")
+    binary = cc_switch_bin()
+    print_warning("默认只删除 cc-switch 命令，不删除 ~/.cc-switch，也不删除 Codex 配置和认证文件。")
+    print_kv("命令路径", binary or "未找到")
+    print_kv("配置目录", config_dir())
+
+    if binary:
+        target = Path(binary)
+        if target.name != "cc-switch":
+            raise RuntimeError(f"拒绝删除名称异常的路径：{target}")
+        if target.is_dir():
+            raise RuntimeError(f"拒绝删除目录：{target}")
+        if not confirm(ctx, f"确认删除 cc-switch 命令 {target}？"):
+            print_step("已取消。")
+            return 1
+        print_step(f"删除 {target}")
+        ctx.logger.info(f"remove {target}")
+        if not ctx.dry_run:
+            target.unlink(missing_ok=True)
+    else:
+        print_step("未找到 cc-switch 命令，跳过命令删除。")
+
+    if purge_config:
+        path = config_dir()
+        print_warning("将备份并删除 cc-switch 配置目录；该目录可能包含 provider/token 等敏感配置。")
+        print_warning("该操作不会删除 ~/.codex/config.toml 或 ~/.codex/auth.json。")
+        if not path.exists():
+            print_step(f"配置目录不存在：{path}")
+            return 0
+        if not confirm(ctx, "确认备份并删除 cc-switch 配置目录？", require_text="DELETE CC-SWITCH CONFIG"):
+            print_step("已跳过配置目录清理。")
+            return 0
+        if ctx.dry_run:
+            print_step(f"[dry-run] 备份 {path} 到 {ctx.backup_dir / 'cc-switch-config'}")
+            print_step(f"[dry-run] 删除 {path}")
+            return 0
+        dest = backup_directory(path, ctx.backup_dir, "cc-switch-config")
+        print_kv("备份路径", dest)
+        print_step(f"删除 {path}")
+        shutil.rmtree(path)
+
+    return 0
+
+
 def status(ctx: RuntimeContext) -> int:
     print_title("cc-switch Codex 面板状态")
     print_kv("命令路径", cc_switch_bin() or "未找到")
     print_kv("版本", version(ctx))
-    print_kv("配置目录", Path("~/.cc-switch").expanduser())
+    print_kv("配置目录", config_dir())
     print_kv("Codex live 配置", Path("~/.codex/config.toml").expanduser())
     print_kv("Codex live 认证", Path("~/.codex/auth.json").expanduser())
 
