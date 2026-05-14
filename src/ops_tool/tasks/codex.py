@@ -6,7 +6,6 @@ import re
 import shlex
 import shutil
 import stat
-import tomllib
 from pathlib import Path
 
 from ..context import RuntimeContext
@@ -24,6 +23,14 @@ from ..ui import confirm, print_error, print_kv, print_step, print_title, print_
 CODEX_NPM_PACKAGE = "@openai/codex"
 SAFE_KEY_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 OPENAI_KEY_RE = re.compile(r"sk-[A-Za-z0-9_*.-]+")
+
+try:
+    import tomllib as _toml_parser
+except ModuleNotFoundError:
+    try:
+        import tomli as _toml_parser  # type: ignore[import-not-found]
+    except ModuleNotFoundError:
+        _toml_parser = None
 
 
 def codex_home() -> Path:
@@ -303,10 +310,85 @@ def encode_toml_value(value: str, *, value_type: str) -> str:
 
 
 def validate_toml_text(text: str) -> None:
+    if _toml_parser is None:
+        validate_toml_text_basic(text)
+        return
     try:
-        tomllib.loads(text)
-    except tomllib.TOMLDecodeError as exc:
+        _toml_parser.loads(text)
+    except _toml_parser.TOMLDecodeError as exc:
         raise RuntimeError(f"TOML 格式无效：{exc}") from exc
+
+
+def validate_toml_text_basic(text: str) -> None:
+    for line_no, raw_line in enumerate(text.splitlines(), start=1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("["):
+            if not _looks_like_toml_table(line):
+                raise RuntimeError(f"TOML 格式无效：第 {line_no} 行表头不完整。")
+            continue
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            raise RuntimeError(f"TOML 格式无效：第 {line_no} 行配置键为空。")
+        if not value:
+            raise RuntimeError(f"TOML 格式无效：第 {line_no} 行配置值为空。")
+        if key == "x":
+            validate_basic_toml_value(value)
+
+
+def _looks_like_toml_table(line: str) -> bool:
+    return (line.startswith("[[") and line.endswith("]]")) or (
+        line.startswith("[") and line.endswith("]") and not line.startswith("[[")
+    )
+
+
+def validate_basic_toml_value(value: str) -> None:
+    if value in {"true", "false"}:
+        return
+    if re.fullmatch(r"[+-]?(0|[1-9][0-9_]*)", value):
+        return
+    if re.fullmatch(r"[+-]?((0|[1-9][0-9_]*)\.[0-9_]+|inf|nan)", value):
+        return
+    if _is_wrapped(value, '"', '"') or _is_wrapped(value, "'", "'"):
+        return
+    if _is_balanced_container(value, "[", "]") or _is_balanced_container(value, "{", "}"):
+        return
+    raise RuntimeError("TOML 格式无效：无法识别该 raw 值。")
+
+
+def _is_wrapped(value: str, prefix: str, suffix: str) -> bool:
+    return len(value) >= 2 and value.startswith(prefix) and value.endswith(suffix)
+
+
+def _is_balanced_container(value: str, opening: str, closing: str) -> bool:
+    if not (value.startswith(opening) and value.endswith(closing)):
+        return False
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    for char in value:
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\" and quote == '"':
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+        if char in {"'", '"'}:
+            quote = char
+        elif char == opening:
+            depth += 1
+        elif char == closing:
+            depth -= 1
+            if depth < 0:
+                return False
+    return depth == 0 and quote is None
 
 
 def validate_config_file(path: Path) -> None:

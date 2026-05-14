@@ -14,8 +14,9 @@ from ops_tool.context import RuntimeContext  # noqa: E402
 from ops_tool.files import mask_json_value, redact_text  # noqa: E402
 from ops_tool.log import OpsLogger  # noqa: E402
 from ops_tool.shell import CommandResult  # noqa: E402
-from ops_tool.tasks import proxy  # noqa: E402
 from ops_tool.tasks import ccswitch  # noqa: E402
+from ops_tool.tasks import codex as codex_task  # noqa: E402
+from ops_tool.tasks import proxy  # noqa: E402
 from ops_tool.tasks.codex import encode_toml_value, redact_login_status, validate_toml_text  # noqa: E402
 
 
@@ -54,6 +55,15 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(encode_toml_value("是", value_type="bool"), "true")
         self.assertEqual(encode_toml_value('"gpt-5.2"', value_type="raw"), '"gpt-5.2"')
         validate_toml_text('model = "gpt-5.2"\n')
+
+    def test_toml_validation_without_tomllib(self) -> None:
+        with patch.object(codex_task, "_toml_parser", None):
+            validate_toml_text('model = "gpt-5.2"\n')
+            validate_toml_text("[profiles.default]\nmodel = \"gpt-5.2\"\n")
+            with self.assertRaises(RuntimeError):
+                validate_toml_text("x = \n")
+            with self.assertRaises(RuntimeError):
+                encode_toml_value("not a raw value", value_type="raw")
 
     def test_ccswitch_constants(self) -> None:
         self.assertEqual(ccswitch.APP_NAME, "codex")
