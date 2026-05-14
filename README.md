@@ -13,6 +13,33 @@
 
 ## 快速开始
 
+一键下载安装到用户目录并启动菜单：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jiusiguer/ops-tool/main/install.sh | bash
+```
+
+如果只安装、不自动启动菜单：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jiusiguer/ops-tool/main/install.sh | OPS_TOOL_RUN_AFTER_INSTALL=0 bash
+```
+
+安装后可以直接运行：
+
+```bash
+ops-tool
+```
+
+默认安装位置：
+
+```text
+~/.local/share/ops-tool
+~/.local/bin/ops-tool
+```
+
+也可以手动运行本地目录：
+
 ```bash
 cd /home/yuyo/桌面/ops-tool
 chmod +x run.sh
